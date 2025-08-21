@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"sync"
 )
 
 type User struct {
@@ -11,6 +12,9 @@ type User struct {
 }
 
 var userCache = make(map[int]User) // create map to sim a user db
+
+// this creates a mutual exclusive flag
+var cacheMutex sync.RWMutex // blocks all reading/writing when locked; mutex is generally a safe way to synchronize data in a multithreaded application.
 
 // main heap
 func main() {
@@ -47,7 +51,9 @@ func createUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// (4) new id; insert user into local memory db
+	cacheMutex.Lock()
 	userCache[len(userCache)+1] = user
+	cacheMutex.Unlock()
 
 	w.WriteHeader(http.StatusNoContent)
 }
