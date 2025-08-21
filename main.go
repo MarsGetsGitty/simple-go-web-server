@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strconv"
 	"sync"
 )
 
@@ -22,6 +23,7 @@ func main() {
 	mux.HandleFunc("/", handleRoot) // template used to control the traffic
 
 	mux.HandleFunc("POST /users", createUser)
+	mux.HandleFunc("GET /users/{id}", getUser)
 
 	// at this point, the server as not started yet.
 
@@ -56,4 +58,43 @@ func createUser(w http.ResponseWriter, r *http.Request) {
 	cacheMutex.Unlock()
 
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func getUser(w http.ResponseWriter, r *http.Request) {
+
+	id, err := strconv.Atoi(r.PathValue("id")) // (1) obtain id string. (2) turn value into an int
+	if err != nil {
+		http.Error(
+			w,
+			err.Error(),
+			http.StatusBadRequest,
+		)
+		return
+	}
+
+	cacheMutex.RLock()
+	user, ok := userCache[id] // (3) check for user
+	cacheMutex.RUnlock()
+
+	if !ok {
+		http.Error(
+			w,
+			"user not found",
+			http.StatusNotFound,
+		)
+		return
+	}
+
+	j, err := json.Marshal(user) // (4) retrieve json representation of this user for this endpoint
+	if err != nil {
+		http.Error(
+			w,
+			err.Error(),
+			http.StatusInternalServerError,
+		)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK) // (5) returns 200 + json representation of retrieved user
+	w.Write(j)                   // (6) write the Marshall user to the response writer
 }
