@@ -24,6 +24,7 @@ func main() {
 
 	mux.HandleFunc("POST /users", createUser)
 	mux.HandleFunc("GET /users/{id}", getUser)
+	mux.HandleFunc("DELETE /users/{id}", deleteUser)
 
 	// at this point, the server as not started yet.
 
@@ -85,6 +86,7 @@ func getUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	w.Header().Set("Content-Type", "application/json")
 	j, err := json.Marshal(user) // (4) retrieve json representation of this user for this endpoint
 	if err != nil {
 		http.Error(
@@ -97,4 +99,31 @@ func getUser(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusOK) // (5) returns 200 + json representation of retrieved user
 	w.Write(j)                   // (6) write the Marshall user to the response writer
+}
+
+func deleteUser(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.Atoi(r.PathValue("id")) // (1) obtain id string. (2) turn value into an int
+	if err != nil {
+		http.Error(
+			w,
+			err.Error(),
+			http.StatusBadRequest,
+		)
+		return
+	}
+
+	if _, ok := userCache[id]; !ok {
+		http.Error(
+			w,
+			"usernot found",
+			http.StatusBadRequest,
+		)
+	}
+
+	cacheMutex.Lock()
+	delete(userCache, id)
+	cacheMutex.Unlock()
+
+	w.WriteHeader(http.StatusNoContent)
+
 }
